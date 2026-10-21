@@ -1,0 +1,94 @@
+Part 2: IPv4
+
+Step 1: HQ
+a) G0/1 je administratively down/down jer nedostaje no shutdown. Ostala sučelja su up/up.
+b) HQ → BRANCH (192.168.0.254): Ne
+c) HQ → ISP (10.1.1.1): Da
+d) PC-A → zadani pristupnik: Da (nakon no shutdown)
+e) PC-A → PC-C: Ne
+f) PC-A → internetski poslužitelj: Ne
+
+Tablica usmjeravanja: nije direktno spojena samo ruta 172.16.3.0/24 preko 10.1.1.1. Rute za 192.168.1.0/24 nema jer je next hop 192.16.0.254 krivo upisan pa se ruta ne instalira.
+Zaključak: HQ ima vezu s ISP-om, ali ne i s BRANCH-om. Ruta prema BRANCH-u ima pogrešan next hop (192.16.0.254 umjesto 192.168.0.254), a i BRANCH ima krivu adresu na serijskom sučelju. Zbog toga ostale mreže ne rade.
+
+Naredbe:
+HQ(config)# interface g0/1
+HQ(config-if)# no shutdown
+HQ(config)# no ip route 192.168.1.0 255.255.255.0 192.16.0.254
+HQ(config)# ip route 192.168.1.0 255.255.255.0 192.168.0.254
+
+Provjera: show ip route sada prikazuje obje statičke rute. Ping do BRANCH-a još ne radi dok se ne popravi BRANCH, a do poslužitelja dok se ne popravi ISP.
+
+Step 2: ISP
+a) G0/0 ima adresu 172.16.3.11, a treba biti 172.16.3.1. Ispravak: interface g0/0 pa ip address 172.16.3.1 255.255.255.0.
+b) ISP → HQ (10.1.1.2): Da
+c) Poslužitelj → zadani pristupnik: Da (nakon ispravka adrese)
+d) Poslužitelj → PC-A: Ne
+e) Poslužitelj → PC-C: Ne
+
+Tablica usmjeravanja: nije direktno spojena samo 192.168.1.0/24 preko 10.1.1.2.
+Zaključak: ISP ima rutu samo do LAN-a BRANCH-a. Nema rute do 192.168.0.0/25 (LAN HQ-a) ni do 192.168.0.252/30, pa ne zna kamo poslati promet prema HQ-u. Treba mu jedna sumarna ruta koja pokriva sve tri mreže.
+Naredbe:
+
+ISP(config)# no ip route 192.168.1.0 255.255.255.0 10.1.1.2
+ISP(config)# ip route 192.168.0.0 255.255.254.0 10.1.1.2
+Provjera: u tablici je sada ruta 192.168.0.0/23. Poslužitelj → PC-A radi. Prema PC-C još ne radi dok se ne popravi BRANCH.
+
+Step 3: BRANCH
+a) S0/0/0 ima adresu 192.168.0.249, a treba biti 192.168.0.254/30. Ispravak: interface s0/0/0 pa ip address 192.168.0.254 255.255.255.252.
+b) BRANCH → HQ (192.168.0.253): Da (nakon ispravka)
+c) PC-C → zadani pristupnik: Da
+d) PC-C → PC-A: Ne
+e) PC-C → internetski poslužitelj: Ne
+Tablica usmjeravanja: nema statičkih ruta, samo spojene (C i L) mreže. Zadana ruta se ne vidi jer next hop 10.1.1.2 nije dostupan s BRANCH-a.
+Zaključak: zadana ruta pokazuje na 10.1.1.2, a to je HQ-ova adresa prema ISP-u, ne prema BRANCH-u. Prema ostatku mreže treba ići preko HQ-a (192.168.0.253).
+Naredbe:
+BRANCH(config)# no ip route 0.0.0.0 0.0.0.0 10.1.1.2
+BRANCH(config)# ip route 0.0.0.0 0.0.0.0 192.168.0.253
+Provjera: show ip route prikazuje S* 0.0.0.0/0 via 192.168.0.253. Svi pingovi sada rade: PC-A ↔ PC-C ↔ poslužitelj.
+Part 3: IPv6
+Step 1: HQ
+a) Na S0/0/1 je adresa 2001:DB8:ACAD:2::3/64, a treba biti ::1. Ispravak:
+HQ(config)# interface s0/0/1
+HQ(config-if)# no ipv6 address 2001:DB8:ACAD:2::3/64
+HQ(config-if)# ipv6 address 2001:DB8:ACAD:2::1/64
+b) HQ → BRANCH (2001:DB8:ACAD:2::2): Da
+c) HQ → ISP (2001:DB8:ACAD:20::1): Ne
+d) PC-A → zadani pristupnik: Da
+e) PC-A → poslužitelj: Ne
+f) PC-A → PC-C: Ne
+Tablica usmjeravanja: nisu direktno spojene 2001:DB8:ACAD:1::/64 preko 2001:DB8:ACAD:2::2 i 2001:DB8:ACAD:30::/64 preko 2001:DB8:ACAD::20:1.
+Zaključak: ruta prema mreži ISP-a (ACAD:30::/64) ima pogrešan next hop (ACAD::20:1 umjesto ACAD:20::1). Zato promet ne ide prema ISP-u, a i ISP ima krivu adresu na svom sučelju. PC-C ne odgovara jer BRANCH nema ispravnu zadanu rutu.
+Naredbe:
+HQ(config)# no ipv6 route 2001:DB8:ACAD:30::/64 2001:DB8:ACAD::20:1
+HQ(config)# ipv6 route 2001:DB8:ACAD:30::/64 2001:DB8:ACAD:20::1
+Provjera: show ipv6 route je sada ispravan. Ping do ISP-a još ne radi dok se ne popravi adresa na ISP-u.
+Step 2: ISP
+a) S0/0/0 ima adresu 2001:DB8::ACAD:20:1, a treba biti 2001:DB8:ACAD:20::1/64. Ispravak:
+ISP(config)# interface s0/0/0
+ISP(config-if)# no ipv6 address 2001:DB8::ACAD:20:1/64
+ISP(config-if)# ipv6 address 2001:DB8:ACAD:20::1/64
+b) ISP → HQ (2001:DB8:ACAD:20::2): Da
+c) Poslužitelj → zadani pristupnik: Da
+d) Poslužitelj → PC-A: Da
+e) Poslužitelj → PC-C: Ne
+
+Tablica usmjeravanja: nije direktno spojena 2001:DB8:ACAD::/62 preko 2001:DB8:ACAD:20::2.
+Zaključak: sumarna ruta /62 je ispravna i pokriva LAN HQ-a, LAN BRANCH-a i vezu HQ–BRANCH. Greška je bila samo u adresi sučelja. PC-C ne odgovara jer BRANCH nema dobru zadanu rutu.
+Naredbe: ispravak adrese na S0/0/0 (gore). Ruta ostaje kakva je.
+Provjera: ping do HQ-a i PC-A radi. Do PC-C ne radi dok se ne popravi BRANCH.
+
+Step 3: BRANCH
+a) Sučelja su u redu: G0/1 je 2001:DB8:ACAD:1::1/64 i S0/0/0 je 2001:DB8:ACAD:2::2/64. Nema što ispravljati.
+b) BRANCH → HQ (2001:DB8:ACAD:2::1): Da
+c) BRANCH → ISP (2001:DB8:ACAD:20::1): Ne
+d) PC-C → zadani pristupnik: Da
+e) PC-C → PC-A: Ne
+f) PC-C → poslužitelj: Ne
+
+Tablica usmjeravanja: nema statičke rute, samo spojene mreže. Zadana ruta se ne vidi jer next hop 2001:DB8:ACAD::1 nije dostupan s BRANCH-a.
+Zaključak: zadana ruta ::/0 ima pogrešan next hop. Pokazuje na G0/1 adresu HQ-a (ACAD::1), a treba na S0/0/1 adresu HQ-a (ACAD:2::1), koja je izravno spojena na BRANCH.
+Naredbe:
+BRANCH(config)# no ipv6 route ::/0 2001:DB8:ACAD::1
+BRANCH(config)# ipv6 route ::/0 2001:DB8:ACAD:2::1
+Provjera: show ipv6 route prikazuje S ::/0 via 2001:DB8:ACAD:2::1. Svi pingovi sada rade: PC-A, PC-C, poslužitelj i usmjernici.
