@@ -1,0 +1,110 @@
+HQ
+__
+enable
+configure terminal
+hostname HQ
+no ip domain-lookup
+enable secret class
+line console 0
+ password cisco
+ login
+line vty 0 4
+ password cisco
+ login
+exit
+service password-encryption
+banner motd # Neovlasteni pristup je zabranjen! #
+
+interface g0/0
+ description 16000 Host LAN
+ ip address 172.16.128.1 255.255.192.0
+ no shutdown
+interface g0/1
+ description 8000 Host LAN
+ ip address 172.16.192.1 255.255.224.0
+ no shutdown
+interface s0/0/0
+ description Veza prema BR1 S0/0/0
+ ip address 172.16.254.1 255.255.255.252
+ no shutdown
+interface s0/0/1
+ description Veza prema BR2 S0/0/1
+ ip address 172.16.254.5 255.255.255.252
+ clock rate 128000
+ no shutdown
+end
+copy running-config startup-config
+
+BR1
+___
+enable
+configure terminal
+hostname BR1
+no ip domain-lookup
+enable secret class
+line console 0
+ password cisco
+ login
+line vty 0 4
+ password cisco
+ login
+exit
+service password-encryption
+banner motd # Neovlasteni pristup je zabranjen! #
+
+interface g0/0
+ description 2000 Host LAN
+ ip address 172.16.240.1 255.255.248.0
+ no shutdown
+interface g0/1
+ description 4000 Host LAN
+ ip address 172.16.224.1 255.255.240.0
+ no shutdown
+interface s0/0/0
+ description Veza prema HQ S0/0/0
+ ip address 172.16.254.2 255.255.255.252
+ clock rate 128000
+ no shutdown
+interface s0/0/1
+ description Veza prema BR2 S0/0/0
+ ip address 172.16.254.9 255.255.255.252
+ no shutdown
+end
+copy running-config startup-config
+
+BR2
+___
+enable
+configure terminal
+hostname BR2
+no ip domain-lookup
+enable secret class
+line console 0
+ password cisco
+ login
+line vty 0 4
+ password cisco
+ login
+exit
+service password-encryption
+banner motd # Neovlasteni pristup je zabranjen! #
+
+interface g0/0
+ description 500 Host LAN
+ ip address 172.16.252.1 255.255.254.0
+ no shutdown
+interface g0/1
+ description 1000 Host LAN
+ ip address 172.16.248.1 255.255.252.0
+ no shutdown
+interface s0/0/0
+ description Veza prema BR1 S0/0/1
+ ip address 172.16.254.10 255.255.255.252
+ clock rate 128000
+ no shutdown
+interface s0/0/1
+ description Veza prema HQ S0/0/1
+ ip address 172.16.254.6 255.255.255.252
+ no shutdown
+end
+copy running-config startup-config
