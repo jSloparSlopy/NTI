@@ -2,3 +2,4 @@ Kakvo je to: Hibridno, Statičko, Dinamičko rutiranje
 Polazna ruta
 Unos statičkih i dinamičkih ruta 
 CLI
+igp egp ibgp ebgp 
